@@ -1,0 +1,62 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+            "ANDROID_NDK_HOME": "${userHome}/AppData/Local/Android/Sdk/ndk/",
+            "ANDROID_HOME": "${userHome}/AppData/Local/Android/Sdk/"
+        }
+    },
+    "tasks": [
+        {
+            "label": "cargo build",
+            "type": "shell",
+            "command": "cargo build --features=\"desktop\"",
+            "problemMatcher": []
+        },
+        {
+            "label": "cargo build release",
+            "type": "shell",
+            "command": "cargo build --release --features=\"desktop\"",
+            "problemMatcher": []
+        },
+        {
+            "label": "cargo run",
+            "type": "shell",
+            "command": "cargo run --features=\"desktop\"",
+            "problemMatcher": []
+        },
+        {
+            "label": "ndk build",
+            "type": "shell",
+            "command": "cargo ndk --platform 21 -t arm64-v8a -o app/src/main/jniLibs/ build",
+            "problemMatcher": []
+        },
+        {
+            "label": "ndk build release",
+            "type": "shell",
+            "command": "cargo ndk --platform 21 -t arm64-v8a -o app/src/main/jniLibs/ build --release",
+            "problemMatcher": []
+        },
+        {
+            "label": "gradle build",
+            "type": "shell",
+            "command": "./gradlew build",
+            "problemMatcher": []
+        },
+        {
+            "label": "gradle install debug",
+            "type": "shell",
+            "command": "./gradlew installDebug",
+            "problemMatcher": []
+        },
+        {
+            "label": "adb install release",
+            "type": "shell",
+            "command": "${userHome}/AppData/Local/Android/Sdk/platform-tools/adb install ${workspaceFolder}/app/build/outputs/apk/release/app-release-unsigned.apk",
+            "problemMatcher": []
+        }
+    ]
+}

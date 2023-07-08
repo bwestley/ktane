@@ -1,14 +1,6 @@
-//#![windows_subsystem = "windows"]
+use std::collections::HashMap;
 
-use std::{
-    collections::{HashMap, HashSet},
-    ops::Index,
-};
-
-use egui::{
-    emath::inverse_lerp, lerp, remap_clamp, Button, Color32, Key, Painter, Pos2, Rect, RichText,
-    Rounding, Slider, Stroke, Style, TextStyle, Vec2,
-};
+use egui::{lerp, remap_clamp, Button, Color32, Pos2, RichText, Slider, Vec2};
 use egui_extras::RetainedImage;
 use strum::IntoEnumIterator;
 use strum_macros::{AsRefStr, EnumIter};
@@ -157,11 +149,11 @@ impl SimonSays {
     }
 }
 
-struct Application {
+pub struct Application {
     module: Module,
     state: usize,
     label: String,
-    painter: Painter,
+    painter: egui::Painter,
     keypad: HashMap<KeypadButton, u8>,
     simon_says: SimonSays,
     memory: Memory,
@@ -174,7 +166,6 @@ struct Application {
 }
 
 impl Application {
-    const MAX_IMAGE_SIZE: Vec2 = Vec2::new(500.0, 500.0);
     const KEYPAD_BUTTONS: [[KeypadButton; 5]; 6] = [
         [
             KeypadButton::O,
@@ -365,12 +356,12 @@ impl Application {
         "WHERE", "WHICH", "WORLD", "WOULD", "WRITE",
     ];
 
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(ctx: &egui::Context) -> Self {
         Self {
             module: Module::Menu,
             state: 0,
             label: String::new(),
-            painter: cc.egui_ctx.layer_painter(egui::LayerId::new(
+            painter: ctx.layer_painter(egui::LayerId::new(
                 egui::Order::Foreground,
                 egui::Id::new("overlay"),
             )),
@@ -401,10 +392,8 @@ impl Application {
                 .unwrap(),
         }
     }
-}
 
-impl eframe::App for Application {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    pub fn update(&mut self, ctx: &egui::Context) {
         let mut style: egui::Style = (*ctx.style()).clone();
         style.spacing.interact_size = Vec2::new(60.0, 30.0);
         style.override_text_style = Some(egui::TextStyle::Heading);
@@ -480,7 +469,7 @@ impl eframe::App for Application {
                     self.label.clear();
                 } else {
                     ui.monospace(&self.label);
-                    let response = self.keypad_image.show_max_size(ui, Self::MAX_IMAGE_SIZE).interact(egui::Sense::click());
+                    let response = self.keypad_image.show_max_size(ui, ui.available_size()).interact(egui::Sense::click());
                     if response.clicked() {
                         if let Some(screen_position) = response.interact_pointer_pos() {
                             let x = remap_clamp(screen_position.x, response.rect.min.x..=response.rect.max.x, 0.0..=4.999).floor();
@@ -524,9 +513,9 @@ impl eframe::App for Application {
                                 let rect_x = lerp(response.rect.min.x..=response.rect.max.x, x as f32 / 5.0);
                                 let rect_y = lerp(response.rect.min.y..=response.rect.max.y, y as f32 / 6.0);
                                 self.painter.rect_stroke(
-                                    Rect::from_min_size(Pos2::new(rect_x, rect_y), response.rect.size() / Vec2::new(5.0, 6.0)),
+                                    egui::Rect::from_min_size(Pos2::new(rect_x, rect_y), response.rect.size() / Vec2::new(5.0, 6.0)),
                                     5.0,
-                                    Stroke::new(10.0, if *i == 0 { Color32::RED } else { Color32::GREEN })
+                                    egui::Stroke::new(10.0, if *i == 0 { Color32::RED } else { Color32::GREEN })
                                 );
                                 if *i > 0 {
                                     self.painter.text(
@@ -787,7 +776,7 @@ impl eframe::App for Application {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
-                self.morse_code_image.show_max_size(ui, Self::MAX_IMAGE_SIZE);
+                self.morse_code_image.show_max_size(ui, ui.available_size());
             },
             Module::ComplicatedWires => {
                 if ui.button("Menu").clicked() {
@@ -818,27 +807,24 @@ impl eframe::App for Application {
                 if ui.button("Reset").clicked() {
                     self.wire_sequence = WireSequence::default();
                 }
-                egui::Grid::new("wire sequence").num_columns(3).show(ui, |ui| {
-                    if ui.button(format!("Red: {}", Self::WIRE_SEQUENCE[(self.wire_sequence.red) as usize])).clicked() && self.wire_sequence.red < 8 {
-                        self.wire_sequence.red += 1;
-                    }
-                    if ui.button(format!("Blue: {}", Self::WIRE_SEQUENCE[(self.wire_sequence.blue + 9) as usize])).clicked() && self.wire_sequence.blue < 8 {
-                        self.wire_sequence.blue += 1;
-                    }
-                    if ui.button(format!("Black: {}", Self::WIRE_SEQUENCE[(self.wire_sequence.black + 18) as usize])).clicked() && self.wire_sequence.black < 8 {
-                        self.wire_sequence.black += 1;
-                    }
-                    ui.end_row();
-                    ui.add(Slider::new(&mut self.wire_sequence.red, 0..=8));
-                    ui.add(Slider::new(&mut self.wire_sequence.blue, 0..=8));
-                    ui.add(Slider::new(&mut self.wire_sequence.black, 0..=8));
-                });
+                if ui.button(format!("Red: {}", Self::WIRE_SEQUENCE[(self.wire_sequence.red) as usize])).clicked() && self.wire_sequence.red < 8 {
+                    self.wire_sequence.red += 1;
+                }
+                ui.add(Slider::new(&mut self.wire_sequence.red, 0..=8));
+                if ui.button(format!("Blue: {}", Self::WIRE_SEQUENCE[(self.wire_sequence.blue + 9) as usize])).clicked() && self.wire_sequence.blue < 8 {
+                    self.wire_sequence.blue += 1;
+                }
+                ui.add(Slider::new(&mut self.wire_sequence.blue, 0..=8));
+                if ui.button(format!("Black: {}", Self::WIRE_SEQUENCE[(self.wire_sequence.black + 18) as usize])).clicked() && self.wire_sequence.black < 8 {
+                    self.wire_sequence.black += 1;
+                }
+                ui.add(Slider::new(&mut self.wire_sequence.black, 0..=8));
             },
             Module::Mazes => {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
-                self.mazes_image.show_max_size(ui, Self::MAX_IMAGE_SIZE);
+                self.mazes_image.show_max_size(ui, ui.available_size());
             },
             Module::Passwords => {
                 if ui.button("Menu").clicked() {
@@ -877,19 +863,8 @@ impl eframe::App for Application {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
-                self.knobs_image.show_max_size(ui, Self::MAX_IMAGE_SIZE);
+                self.knobs_image.show_max_size(ui, ui.available_size());
             }
         });
     }
-}
-
-fn main() {
-    let mut native_options = eframe::NativeOptions::default();
-    native_options.initial_window_size = Some(Vec2::new(600.0, 600.0));
-    native_options.follow_system_theme = false;
-    let _ = eframe::run_native(
-        "KTANE",
-        native_options,
-        Box::new(|cc| Box::new(Application::new(cc))),
-    );
 }

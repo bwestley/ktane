@@ -7,12 +7,36 @@ edition = "2021"
 
 [dependencies]
 egui = "0.22"
-eframe = { version = "0.22.0", default-features = false, features = [
-    "default_fonts", # Embed the default egui fonts.
-    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
-] }
 egui_extras = { version = "0.22", features = [
     "image"
 ] }
+image = { version = "0.24", features = ["jpeg", "png"] }
 strum = "0.25"
 strum_macros = "0.25"
+log = "0.4"
+pollster = "0.2"
+
+# For some reason logging within the egui crate isn't working, even with
+# the log feature. Maybe the android_logger crate is broken?
+egui-wgpu = { version = "0.22", features = [ "winit" ] }
+egui-winit = { version = "0.22", default-features = false, features = [ "android-native-activity" ] }
+egui_demo_lib = "0.22"
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+env_logger = "0.10"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.13.0"
+
+[features]
+default = []
+desktop = []
+
+[lib]
+name="ktane_android"
+crate_type=["cdylib"]
+
+[[bin]]
+path="src/lib.rs"
+name="ktane_desktop"
+required-features = [ "desktop" ]
