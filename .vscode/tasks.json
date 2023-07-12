@@ -67,6 +67,15 @@
                 "gradle install debug"
             ],
             "problemMatcher": []
+        },
+        {
+            "label": "sign",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/../apksign"
+            },
+            "command": "${userHome}/AppData/Local/Android/Sdk/build-tools/31.0.0/zipalign -p 4 ${workspaceFolder}/app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk; ${userHome}/AppData/Local/Android/Sdk/build-tools/31.0.0/apksigner.bat sign --ks keystore.jks --ks-key-alias app --ks-pass file:pass.txt aligned.apk; Move-Item aligned.apk ${workspaceFolder}/target/signed.apk",
+            "problemMatcher": []
         }
     ]
 }
