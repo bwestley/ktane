@@ -57,6 +57,16 @@
             "type": "shell",
             "command": "${userHome}/AppData/Local/Android/Sdk/platform-tools/adb install ${workspaceFolder}/app/build/outputs/apk/release/app-release-unsigned.apk",
             "problemMatcher": []
+        },
+        {
+            "label": "android",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "ndk build release",
+                "gradle build",
+                "gradle install debug"
+            ],
+            "problemMatcher": []
         }
     ]
 }

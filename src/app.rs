@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use egui::{lerp, remap_clamp, Button, Color32, Pos2, RichText, Slider, Vec2};
+use egui::{lerp, remap_clamp, Button, Color32, Grid, Pos2, RichText, Slider, TextEdit, Vec2};
 use egui_extras::RetainedImage;
 use strum::IntoEnumIterator;
 use strum_macros::{AsRefStr, EnumIter};
@@ -355,6 +355,11 @@ impl Application {
         "SPELL", "STILL", "STUDY", "THEIR", "THERE", "THESE", "THINK", "THINK", "THREE", "WATER",
         "WHERE", "WHICH", "WORLD", "WOULD", "WRITE",
     ];
+    #[cfg(target_os = "android")]
+    const KEYBOARD: [char; 26] = [
+        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K',
+        'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M',
+    ];
 
     pub fn new(ctx: &egui::Context) -> Self {
         Self {
@@ -403,7 +408,7 @@ impl Application {
             Module::Menu => {
                 let mut modules = Module::iter();
                 modules.next();
-                egui::Grid::new("menu").num_columns(3).show(ui, |ui| {
+                Grid::new("menu").num_columns(3).show(ui, |ui| {
                     let mut i = 0;
                     for module in modules {
                         if ui.button(module.as_ref()).clicked() {
@@ -539,7 +544,7 @@ impl Application {
                 }
                 ui.checkbox(&mut self.simon_says.vowel, "Vowel");
                 ui.add(Slider::new(&mut self.simon_says.strikes, 0..=2).text("Strikes"));
-                egui::Grid::new("simon says").show(ui, |ui| {
+                Grid::new("simon says").show(ui, |ui| {
                     if ui.add(Button::new("   ").fill(Color32::RED)).clicked() {
                         self.simon_says.entered.push(SimonColor::Red);
                     }
@@ -571,7 +576,7 @@ impl Application {
                 }
                 if self.state == 0 {
                     ui.monospace("Displayed word:");
-                    egui::Grid::new("positions").num_columns(5).show(ui, |ui| {
+                    Grid::new("positions").num_columns(5).show(ui, |ui| {
                         let mut i = 1;
                         let mut j = 0;
                         for (word, _) in Self::WHOS_ON_FIRST_POSITIONS {
@@ -592,7 +597,7 @@ impl Application {
                     } else {
                         let i = self.state - 1;
                         ui.monospace(format!("{}: {}", Self::WHOS_ON_FIRST_POSITIONS[i].0, Self::WHOS_ON_FIRST_POSITIONS[i].1));
-                        egui::Grid::new("words").num_columns(5).show(ui, |ui| {
+                        Grid::new("words").num_columns(5).show(ui, |ui| {
                             let mut i = Self::WHOS_ON_FIRST_POSITIONS.len() + 1;
                             let mut j = 0;
                             for (word, _) in Self::WHOS_ON_FIRST_BUTTONS {
@@ -786,7 +791,7 @@ impl Application {
                 if ui.button("Reset").clicked() {
                     self.state = 0;
                 }
-                egui::Grid::new("complicated wires").num_columns(4).show(ui, |ui| {
+                Grid::new("complicated wires").num_columns(4).show(ui, |ui| {
                     let mut i = 0;
                     for label in ["LED", "STAR", "BLUE", "RED"] {
                         if ui.add(Button::new(RichText::new(label).color(Color32::BLACK)).fill(
@@ -829,35 +834,77 @@ impl Application {
             Module::Passwords => {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
+                    self.state = 0;
                     self.label.clear();
                     self.password.iter_mut().for_each(|f| f.clear());
                 }
                 if ui.button("Reset").clicked() {
+                    self.state = 0;
                     self.label.clear();
                     self.password.iter_mut().for_each(|f| f.clear());
                 }
-                ui.monospace(&self.label);
-                egui::Grid::new("password").num_columns(2).show(ui, |ui| {
+
+                let label_rect = ui.monospace(&self.label).rect;
+                ui.allocate_exact_size(Vec2::new(0.0, 90.0 - label_rect.height()), egui::Sense::hover());
+                
+                let mut changed = false;
+                Grid::new("password").num_columns(2).min_col_width(0.0).show(ui, |ui| {
                     for i in 0..5 {
-                        ui.monospace(i.to_string());
-                        if ui.text_edit_singleline(&mut self.password[i]).changed() {
-                            self.password[i].make_ascii_uppercase();
-                            self.label = Self::PASSWORDS.iter().filter(|word| {
-                                for (i, c) in word.chars().enumerate() {
-                                    if self.password[i].len() > 0 && !self.password[i].contains(c) {
-                                        return false;
-                                    }
-                                }
-                                return true;
-                            }).fold(String::new(), |mut a, b| {
-                                a.push_str(b);
-                                a.push_str(" ");
-                                a
-                            });
+                        #[cfg(target_os = "android")]
+                        if i == self.state {
+                            ui.monospace(RichText::new(i.to_string()).color(Color32::GOLD));
+                        } else {
+                            ui.monospace(i.to_string());
                         }
+                        #[cfg(not(target_os = "android"))]
+                        ui.monospace(i.to_string());
+
+                        let response = ui.add(TextEdit::singleline(&mut self.password[i]).desired_width(100.0));
+                        if response.changed() {
+                            changed = true;
+                            self.password[i].make_ascii_uppercase();
+                        }
+                        if response.clicked() {
+                            self.state = i;
+                        }
+
                         ui.end_row();
                     }
                 });
+
+                #[cfg(target_os = "android")]
+                Grid::new("keyboard").spacing((0.0, 0.0)).min_col_width(0.0).show(ui, |ui| {
+                    for i in 0usize..26 {
+                        if ui.add(Button::new(RichText::new(Self::KEYBOARD[i]).monospace()).min_size(Vec2::new(30.0, 10.0)).rounding(0.0)).clicked() {
+                            self.password[self.state].push(Self::KEYBOARD[i]);
+                            changed = true;
+                        }
+                        if i == 9 {
+                            ui.end_row();
+                        } else if i == 18 {
+                            if ui.add(Button::new(RichText::new("\u{2190}").monospace()).min_size(Vec2::new(30.0, 10.0)).rounding(0.0)).clicked() {
+                                self.password[self.state].pop();
+                                changed = true;
+                            }
+                            ui.end_row();
+                        }
+                    }
+                });
+
+                if changed {
+                    self.label = Self::PASSWORDS.iter().filter(|word| {
+                        for (i, c) in word.chars().enumerate() {
+                            if self.password[i].len() > 0 && !self.password[i].contains(c) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }).fold(String::new(), |mut a, b| {
+                        a.push_str(b);
+                        a.push_str(" ");
+                        a
+                    });
+                }
             },
             Module::Knobs => {
                 if ui.button("Menu").clicked() {
