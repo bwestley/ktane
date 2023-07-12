@@ -61,7 +61,7 @@ impl KeypadButton {
             KeypadButton::EmptyStar => "Empty Stat",
             KeypadButton::N6 => "6",
             KeypadButton::FilledStar => "Filled Star",
-            KeypadButton::Yot => "Anti-N",
+            KeypadButton::Yot => "Yot",
             k => k.as_ref(),
         }
     }
