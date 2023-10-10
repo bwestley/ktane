@@ -75,11 +75,11 @@
                 "cwd": "${workspaceFolder}/../apksign"
             },
             "command": [
-                "${userHome}/AppData/Local/Android/Sdk/build-tools/31.0.0/zipalign -v -f -p 4 ${workspaceFolder}/app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk;",
-                "${userHome}/AppData/Local/Android/Sdk/build-tools/31.0.0/zipalign -v -c 4 aligned.apk;",
-                "${userHome}/AppData/Local/Android/Sdk/build-tools/31.0.0/apksigner.bat sign -v --ks keystore.jks --ks-key-alias app --ks-pass file:pass.txt --out ${workspaceFolder}/target/signed.apk aligned.apk;",
+                "${userHome}/AppData/Local/Android/Sdk/build-tools/34.0.0/zipalign -v -f -p 4 ${workspaceFolder}/app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk;",
+                "${userHome}/AppData/Local/Android/Sdk/build-tools/34.0.0/zipalign -v -c 4 aligned.apk;",
+                "${userHome}/AppData/Local/Android/Sdk/build-tools/34.0.0/apksigner.bat sign -v --ks keystore.jks --ks-key-alias app --ks-pass file:pass.txt --out ${workspaceFolder}/target/signed.apk aligned.apk;",
                 "Remove-Item aligned.apk;",
-                "${userHome}/AppData/Local/Android/Sdk/build-tools/31.0.0/apksigner.bat verify -v --print-certs ${workspaceFolder}/target/signed.apk"
+                "${userHome}/AppData/Local/Android/Sdk/build-tools/34.0.0/apksigner.bat verify -v --print-certs ${workspaceFolder}/target/signed.apk"
             ],
             "problemMatcher": []
         }

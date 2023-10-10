@@ -1,15 +1,13 @@
 [package]
 name = "ktane"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 egui = "0.22"
-egui_extras = { version = "0.22", features = [
-    "image"
-] }
+egui_extras = { version = "0.22", features = ["image"] }
 image = { version = "0.24", features = ["jpeg", "png"] }
 strum = "0.25"
 strum_macros = "0.25"
@@ -18,8 +16,10 @@ pollster = "0.2"
 
 # For some reason logging within the egui crate isn't working, even with
 # the log feature. Maybe the android_logger crate is broken?
-egui-wgpu = { version = "0.22", features = [ "winit" ] }
-egui-winit = { version = "0.22", default-features = false, features = [ "android-native-activity" ] }
+egui-wgpu = { version = "0.22", features = ["winit"] }
+egui-winit = { version = "0.22", default-features = false, features = [
+    "android-native-activity",
+] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 env_logger = "0.10"
@@ -32,10 +32,10 @@ default = []
 desktop = []
 
 [lib]
-name="ktane_android"
-crate_type=["cdylib"]
+name = "ktane_android"
+crate_type = ["cdylib"]
 
 [[bin]]
-path="src/lib.rs"
-name="ktane_desktop"
-required-features = [ "desktop" ]
+path = "src/lib.rs"
+name = "ktane_desktop"
+required-features = ["desktop"]

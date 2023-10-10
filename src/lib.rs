@@ -36,7 +36,7 @@ fn create_window<T>(
         .with_decorations(true)
         .with_resizable(true)
         .with_transparent(false)
-        .with_title("KTANE Manual")
+        .with_title(concat!("KTANE Manual ", env!("CARGO_PKG_VERSION")))
         .with_theme(Some(winit::window::Theme::Dark))
         .with_inner_size(egui_winit::winit::dpi::LogicalSize::new(
             INITIAL_WIDTH,
