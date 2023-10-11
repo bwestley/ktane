@@ -316,16 +316,16 @@ impl Application {
         "NEVER",
         "ALWAYS",
         "2+ BATTERIES",
-        "LAST DIGIT EVEN",
+        "SERIAL NUMBER ENDS EVEN",
         "PARALLEL PORT",
         "NEVER",
         "PARALLEL PORT",
-        "LAST DIGIT EVEN",
+        "SERIAL NUMBER ENDS EVEN",
         "2+ BATTERIES",
         "ALWAYS",
         "2+ BATTERIES",
-        "LAST DIGIT EVEN",
-        "LAST DIGIT EVEN",
+        "SERIAL NUMBER ENDS EVEN",
+        "SERIAL NUMBER ENDS EVEN",
         "PARALLEL PORT",
         "NEVER",
     ];
@@ -606,16 +606,16 @@ impl Application {
                         }
                     }
                     1 => {
-                        ui.label("0 red: 2\n2+ blue: last blue\n3");
+                        ui.label("3 Wires:\n\nCut the wire indicated by the first true condition.\n0 red: 2\n2+ blue: last blue\nelse: 3");
                     }
                     2 => {
-                        ui.label("2+ red & SN finishes odd: last red\n0 red & last yellow: 1\n1 blue: 1\n2+ yellow: 4\n2");
+                        ui.label("4 Wires:\n\nCut the wire indicated by the first true condition.\n2+ red & serial number ends odd: last red\n0 red & last is yellow: 1\n1 blue: 1\n2+ yellow: 4\nelse: 2");
                     }
                     3 => {
-                        ui.label("last black & SN finishes odd: 4\n0 black & 0 red: 2\n1");
+                        ui.label("5 Wires:\n\nCut the wire indicated by the first true condition.\nlast is black & serial number ends odd: 4\n0 black & 0 red: 2\nelse: 1");
                     }
                     4 => {
-                        ui.label("0 yellow & SN finishes odd: 3\n1 yellow & 2+ white: 4\n0 red: last\n4");
+                        ui.label("6 Wires\n\nCut the wire indicated by the first true condition.\n0 yellow & serial number ends odd: 3\n1 yellow & 2+ white: 4\n0 red: 6\nelse: 4");
                     }
                     s => panic!("Invalid state {s}.")
                 };
@@ -624,7 +624,7 @@ impl Application {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
-                ui.label("Blue abort: hold\n2+ batteries & detonate: press\nwhite & CAR: hold\n3+ batteries & FRK: press\nred & hold: press\nhold\n\nBlue: 4\nYellow: 5\n1");
+                ui.label("Take the action indicated by the first true condition.\nBlue \"abort\" button: hold\n\"detonate\" button & 2+ batteries: click\nwhite button & lit CAR indicator: hold\n3+ batteries & lit FRK indicator: click\nred \"hold\" button: click\nelse: hold\n\nHold Procedure:\nHold the button until the timer has a digit corresponding with the button light.\nblue: 4\nyellow: 5\nelse: 1");
             },
             Module::Keypad => {
                 if ui.button("Menu").clicked() {
@@ -635,7 +635,12 @@ impl Application {
                     self.keypad.clear();
                     self.label.clear();
                 } else {
-                    ui.label(&self.label);
+                    ui.label("Select the icons below that are found on the module.");
+                    ui.label(if self.label.len() == 0 {
+                        "".to_owned()
+                    } else {
+                        format!("Click the buttons in this order:{}.", self.label)
+                    });
                     let response = ui.image(egui::include_image!("Keypad.png")).interact(egui::Sense::click());
                     if response.clicked() {
                         if let Some(screen_position) = response.interact_pointer_pos() {
@@ -660,9 +665,10 @@ impl Application {
                                     if i > 4 {
                                         let mut pairs = self.keypad.iter().collect::<Vec<_>>();
                                         pairs.sort_by(|a, b| a.1.cmp(b.1));
-                                        self.label = pairs.iter().fold(String::new(), |mut a, b| {
-                                            a.push_str(b.0.name());
+                                        self.label.clear();
+                                        pairs.iter().fold(&mut self.label, |a, b| {
                                             a.push_str(" ");
+                                            a.push_str(b.0.name());
                                             a
                                         });
                                         break;
@@ -704,6 +710,7 @@ impl Application {
                 if ui.button("Reset").clicked() {
                     self.simon_says.entered.clear();
                 }
+                ui.label("Input the bomb conditions and Simon Says flash pattern. Click the indicated button pattern.");
                 ui.checkbox(&mut self.simon_says.vowel, "Vowel");
                 ui.add(Slider::new(&mut self.simon_says.strikes, 0..=2).text("Strikes"));
                 Grid::new("simon says").show(ui, |ui| {
@@ -722,7 +729,7 @@ impl Application {
                     ui.end_row();
 
                     ui.label("Flash");
-                    ui.label("Press");
+                    ui.label("Click");
                     ui.end_row();
 
                     for color in &self.simon_says.entered {
@@ -743,6 +750,12 @@ impl Application {
                     self.whos_on_first.iter_mut().for_each(|s| s.clear());
                     self.state = 0;
                 }
+                ui.label("Enter the first and last three letters of each word on the display and buttons.");
+                ui.label(if self.label.len() == 0 {
+                    "".to_owned()
+                } else {
+                    format!("Click {}.", &self.label)
+                });
                 
                 let mut changed = false;
                 let response = Frame::none().stroke(egui::Stroke { width: 10.0, color: if self.state == 0 {Color32::GOLD} else {Color32::TRANSPARENT}}).show(ui, |ui| {
@@ -798,40 +811,36 @@ impl Application {
                     if let Some(button) = button {
                         self.label = button.clone();
                     } else {
-                        self.label = String::from("????");
+                        self.label.clear();
                     }
                 }
-                ui.label(&self.label);
             },
             Module::Memory => {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
+                if ui.button("Reset").clicked() {
+                    self.state = 0;
+                }
                 match self.state {
                     0 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
                         self.memory = Memory::default();
-                        ui.label("Stage 1. Displayed:");
-                        if ui.button("1: position 2").clicked() {
+                        ui.label("Stage 1: Displayed:");
+                        if ui.button("1: click position 2").clicked() {
                             self.memory.position1 = 2;
                             self.state = 1;
-                        } else if ui.button("2: position 2").clicked() {
+                        } else if ui.button("2: click position 2").clicked() {
                             self.memory.position1 = 2;
                             self.state = 1;
-                        } else if ui.button("3: position 3").clicked() {
+                        } else if ui.button("3: click position 3").clicked() {
                             self.memory.position1 = 3;
                             self.state = 1;
-                        } else if ui.button("4: position 4").clicked() {
+                        } else if ui.button("4: click position 4").clicked() {
                             self.memory.position1 = 4;
                             self.state = 1;
                         }
                     }
                     1 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
                         ui.label("Label from stage 1:");
                         for i in 1..=4 {
                             if ui.button(i.to_string()).clicked() {
@@ -841,28 +850,22 @@ impl Application {
                         }
                     }
                     2 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
-                        ui.label("Stage 2. Displayed:");
-                        if ui.button("1: label 4").clicked() {
+                        ui.label("Stage 2: Displayed:");
+                        if ui.button("1: click label 4").clicked() {
                             self.memory.label2 = 4;
                             self.state = 4;
-                        } else if ui.button(format!("2: position {}", self.memory.position1)).clicked() {
+                        } else if ui.button(format!("2: click position {}", self.memory.position1)).clicked() {
                             self.memory.position2 = self.memory.position1;
                             self.state = 3;
-                        } else if ui.button("3: position 1").clicked() {
+                        } else if ui.button("3: click position 1").clicked() {
                             self.memory.position2 = 1;
                             self.state = 3;
-                        } else if ui.button(format!("4: position {}", self.memory.position1)).clicked() {
+                        } else if ui.button(format!("4: click position {}", self.memory.position1)).clicked() {
                             self.memory.position2 = self.memory.position1;
                             self.state = 3;
                         }
                     }
                     3 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
                         ui.label("Label from stage 2:");
                         for i in 1..=4 {
                             if ui.button(i.to_string()).clicked() {
@@ -872,9 +875,6 @@ impl Application {
                         }
                     }
                     4 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
                         ui.label("Position from stage 2:");
                         for i in 1..=4 {
                             if ui.button(i.to_string()).clicked() {
@@ -884,27 +884,21 @@ impl Application {
                         }
                     }
                     5 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
-                        ui.label("Stage 3. Displayed:");
-                        if ui.button(format!("1: label {}", self.memory.label2)).clicked() {
+                        ui.label("Stage 3: Displayed:");
+                        if ui.button(format!("1: click label {}", self.memory.label2)).clicked() {
                             self.memory.label3 = self.memory.label2;
                             self.state = 7;
-                        } else if ui.button(format!("2: label {}", self.memory.label1)).clicked() {
+                        } else if ui.button(format!("2: click label {}", self.memory.label1)).clicked() {
                             self.memory.label3 = self.memory.label1;
                             self.state = 7;
-                        } else if ui.button("3: position 3").clicked() {
+                        } else if ui.button("3: click position 3").clicked() {
                             self.state = 6;
-                        } else if ui.button("4: label 4").clicked() {
+                        } else if ui.button("4: click label 4").clicked() {
                             self.memory.label3 = 4;
                             self.state = 7;
                         }
                     }
                     6 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
                         ui.label("Label from stage 3:");
                         for i in 1..=4 {
                             if ui.button(i.to_string()).clicked() {
@@ -914,24 +908,18 @@ impl Application {
                         }
                     }
                     7 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
-                        ui.label("Stage 4. Displayed:");
-                        if ui.button(format!("1: position {}", self.memory.position1)).clicked() {
+                        ui.label("Stage 4: Displayed:");
+                        if ui.button(format!("1: click position {}", self.memory.position1)).clicked() {
                             self.state = 8;
-                        } else if ui.button("2: position 1").clicked() {
+                        } else if ui.button("2: click position 1").clicked() {
                              self.state = 8;
-                        } else if ui.button(format!("3: position {}", self.memory.position2)).clicked() {
+                        } else if ui.button(format!("3: click position {}", self.memory.position2)).clicked() {
                             self.state = 8;
-                        } else if ui.button(format!("4: position {}", self.memory.position2)).clicked() {
+                        } else if ui.button(format!("4: click position {}", self.memory.position2)).clicked() {
                             self.state = 8;
                         }
                     }
                     8 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
                         ui.label("Label from stage 4:");
                         for i in 1..=4 {
                             if ui.button(i.to_string()).clicked() {
@@ -941,19 +929,16 @@ impl Application {
                         }
                     }
                     9 => {
-                        if ui.button("Reset").clicked() {
-                            self.state = 0;
-                        }
-                        ui.label("Stage 5. Displayed:");
-                        let _ = ui.button(format!("1: label {}", self.memory.label1));
-                        let _ = ui.button(format!("2: label {}", self.memory.label2));
-                        let _ = ui.button(format!("3: label {}", self.memory.label4));
-                        let _ = ui.button(format!("4: label {}", self.memory.label3));
+                        ui.label("Stage 5: Displayed:");
+                        let _ = ui.button(format!("1: click label {}", self.memory.label1));
+                        let _ = ui.button(format!("2: click label {}", self.memory.label2));
+                        let _ = ui.button(format!("3: click label {}", self.memory.label4));
+                        let _ = ui.button(format!("4: click label {}", self.memory.label3));
                     }
                     s => panic!("Invalid state {s}.")
                 }
                 ui.label(RichText::new(format!(
-                    "Position Label\n{}        {}\n{}        {}\nX        {}\nX        {}\n",
+                    "\nMemory State:\nPosition Label\n======== =====\n{}        {}\n{}        {}\nX        {}\nX        {}\n",
                     self.memory.position1, self.memory.label1, self.memory.position2,
                     self.memory.label2, self.memory.label3, self.memory.label4
                 )));
@@ -962,6 +947,7 @@ impl Application {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
+                ui.label("Set the frequency corresponding to the first Morse Code letters after the long pause. Then click the \"TX\" button.");
                 ui.image(egui::include_image!("MorseCode.png"));
             },
             Module::ComplicatedWires => {
@@ -972,11 +958,12 @@ impl Application {
                 if ui.button("Reset").clicked() {
                     self.state = 0;
                 }
+                ui.label("For each wire, input its attributes.");
                 Grid::new("complicated wires").num_columns(4).show(ui, |ui| {
                     let mut i = 0;
                     for label in ["LED", "STAR", "BLUE", "RED"] {
                         if ui.add(Button::new(RichText::new(label).color(Color32::BLACK)).fill(
-                            if self.state & (1 << i) == 0 { Color32::RED } else { Color32::GREEN }
+                            if self.state & (1 << i) == 0 { Color32::DARK_GRAY } else { Color32::GOLD }
                         ).min_size(Vec2::new(40.0, 30.0))).clicked() {
                             self.state ^= 1 << i;
                         }
@@ -993,6 +980,7 @@ impl Application {
                 if ui.button("Reset").clicked() {
                     self.wire_sequence = WireSequence::default();
                 }
+                ui.label("Until the module is solved:\n    For each wire 1-3:\n        Cut the wire if it is connected to the position indicated on the corresponding button below\n        Click the corresponding button below.\n    Click the down button.\n\nThe sliders below track how many wires of each color have been processed.");
                 if ui.button(format!("Red: {}", Self::WIRE_SEQUENCE[(self.wire_sequence.red) as usize])).clicked() && self.wire_sequence.red < 8 {
                     self.wire_sequence.red += 1;
                 }
@@ -1010,6 +998,7 @@ impl Application {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
+                ui.label("The maze layout is identified by two circular markings (the column(s) of these are enough). Using the arrow buttons, move the white square to the red triangle without crossing the lines shown on the maze layout.");
                 ui.image(egui::include_image!("Mazes.png"));
             },
             Module::Passwords => {
@@ -1024,6 +1013,7 @@ impl Application {
                     self.label.clear();
                     self.password.iter_mut().for_each(|f| f.clear());
                 }
+                ui.label("Enter all available letters for each position until only one word is shown. Enter that word into the bomb and click submit.");
 
                 let label_rect = ui.label(&self.label).rect;
                 ui.allocate_exact_size(Vec2::new(0.0, 90.0 - label_rect.height()), egui::Sense::hover());
@@ -1074,6 +1064,7 @@ impl Application {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
+                ui.label("Rotate the knob to the position indicated by the lights. Knob positions are relative to the \"UP\" label on the bomb.");
                 ui.image(egui::include_image!("Knobs.png"));
             }
         });
