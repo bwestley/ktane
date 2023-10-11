@@ -4,7 +4,6 @@ use egui::{
     lerp, remap_clamp, Button, Color32, Frame, Grid, Pos2, RichText, Slider,
     TextEdit, Vec2,
 };
-use egui_extras::RetainedImage;
 use strum::IntoEnumIterator;
 use strum_macros::{AsRefStr, EnumIter};
 
@@ -209,10 +208,6 @@ pub struct Application {
     memory: Memory,
     wire_sequence: WireSequence,
     password: [String; 5],
-    keypad_image: RetainedImage,
-    morse_code_image: RetainedImage,
-    mazes_image: RetainedImage,
-    knobs_image: RetainedImage,
 }
 
 impl Application {
@@ -525,6 +520,8 @@ impl Application {
             )] {
                 whos_on_first_buttons.insert(whos_translate(label), v.iter().map(|word| whos_translate(word)).collect());
             }
+        
+        egui_extras::install_image_loaders(ctx);
 
         Self {
             module: Module::Menu,
@@ -556,20 +553,6 @@ impl Application {
                 String::new(),
                 String::new(),
             ],
-            keypad_image: RetainedImage::from_image_bytes(
-                "Keypad.png",
-                include_bytes!("Keypad.png"),
-            )
-            .unwrap(),
-            morse_code_image: RetainedImage::from_image_bytes(
-                "MorseCode.png",
-                include_bytes!("MorseCode.png"),
-            )
-            .unwrap(),
-            mazes_image: RetainedImage::from_image_bytes("Mazes.png", include_bytes!("Mazes.png"))
-                .unwrap(),
-            knobs_image: RetainedImage::from_image_bytes("Knobs.png", include_bytes!("Knobs.png"))
-                .unwrap(),
         }
     }
 
@@ -653,7 +636,7 @@ impl Application {
                     self.label.clear();
                 } else {
                     ui.label(&self.label);
-                    let response = self.keypad_image.show_max_size(ui, ui.available_size()).interact(egui::Sense::click());
+                    let response = ui.image(egui::include_image!("Keypad.png")).interact(egui::Sense::click());
                     if response.clicked() {
                         if let Some(screen_position) = response.interact_pointer_pos() {
                             let x = remap_clamp(screen_position.x, response.rect.min.x..=response.rect.max.x, 0.0..=4.999).floor();
@@ -979,7 +962,7 @@ impl Application {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
-                self.morse_code_image.show_max_size(ui, ui.available_size());
+                ui.image(egui::include_image!("MorseCode.png"));
             },
             Module::ComplicatedWires => {
                 if ui.button("Menu").clicked() {
@@ -1027,7 +1010,7 @@ impl Application {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
-                self.mazes_image.show_max_size(ui, ui.available_size());
+                ui.image(egui::include_image!("Mazes.png"));
             },
             Module::Passwords => {
                 if ui.button("Menu").clicked() {
@@ -1091,7 +1074,7 @@ impl Application {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
                 }
-                self.knobs_image.show_max_size(ui, ui.available_size());
+                ui.image(egui::include_image!("Knobs.png"));
             }
         });
         self.painter.text(
