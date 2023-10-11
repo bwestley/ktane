@@ -754,7 +754,7 @@ impl Application {
                 ui.label(if self.label.len() == 0 {
                     "".to_owned()
                 } else {
-                    format!("Click {}.", &self.label)
+                    format!("Click the {} button.", &self.label)
                 });
                 
                 let mut changed = false;
@@ -809,7 +809,7 @@ impl Application {
                         }
                     } else {None};
                     if let Some(button) = button {
-                        self.label = button.clone();
+                        self.label = ["top left", "top right", "middle left", "middle right", "bottom left", "bottom right"][self.whos_on_first[1..7].iter().position(|s| s == button).unwrap()].to_string();
                     } else {
                         self.label.clear();
                     }
