@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use egui::{
-    lerp, remap_clamp, text::LayoutJob, Button, Color32, Grid, Pos2, RichText, Slider, TextEdit,
-    Vec2,
+    lerp, remap_clamp, Button, Color32, Frame, Grid, Pos2, RichText, Slider,
+    TextEdit, Vec2,
 };
 use egui_extras::RetainedImage;
 use strum::IntoEnumIterator;
@@ -152,6 +152,50 @@ impl SimonSays {
     }
 }
 
+fn whos_translate(word: &str) -> String {
+    if word.chars().count() > 4 {
+        let mut s = String::from(word.chars().nth(0).unwrap());
+        s += &word[word.char_indices().nth_back(2).unwrap().0..];
+        s
+    } else {
+        word.to_owned()
+    }
+}
+
+#[cfg(target_os = "android")]
+const KEYBOARD: [char; 28] = [
+    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K',
+    'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '\'', '?'
+];
+
+#[cfg(target_os = "android")]
+fn keyboard(ui: &mut egui::Ui, string: &mut String) -> bool {
+    Grid::new("keyboard").spacing((0.0, 0.0)).min_col_width(0.0).show(ui, |ui| {
+        let mut changed = false;
+        for i in 0usize..28 {
+            if ui.add(Button::new(RichText::new(KEYBOARD[i])).min_size(Vec2::new(30.0, 10.0)).rounding(0.0)).clicked() {
+                string.push(KEYBOARD[i]);
+                changed = true;
+            }
+            if i == 9 {
+                ui.end_row();
+            } else if i == 18 {
+                if ui.add(Button::new(RichText::new("\u{2190}")).min_size(Vec2::new(30.0, 10.0)).rounding(0.0)).clicked() {
+                    string.pop();
+                    changed = true;
+                }
+                ui.end_row();
+            } else if i == 25 {
+                if ui.add(Button::new(RichText::new("\u{2588}").size(10.0)).min_size(Vec2::new(30.0, 10.0)).rounding(0.0)).clicked() {
+                    string.push(' ');
+                    changed = true;
+                }
+            }
+        }
+        changed
+    }).inner
+}
+
 pub struct Application {
     module: Module,
     state: usize,
@@ -159,7 +203,9 @@ pub struct Application {
     painter: egui::Painter,
     keypad: HashMap<KeypadButton, u8>,
     simon_says: SimonSays,
-    whos_on_first_layouts: Vec<LayoutJob>,
+    whos_on_first_positions: HashMap<String, usize>,
+    whos_on_first_buttons: HashMap<String, Vec<String>>,
+    whos_on_first: [String; 7],
     memory: Memory,
     wire_sequence: WireSequence,
     password: [String; 5],
@@ -270,74 +316,6 @@ impl Application {
             KeypadButton::Omega,
         ],
     ];
-    const COLORS: [Color32; 6] = [
-        Color32::LIGHT_GRAY,
-        Color32::from_rgb(255, 0, 0),
-        Color32::from_rgb(255, 255, 0),
-        Color32::from_rgb(0, 255, 0),
-        Color32::from_rgb(0, 255, 255),
-        Color32::from_rgb(255, 0, 255),
-    ];
-    const WHOS_ON_FIRST_POSITIONS: [(&str, &str, usize); 28] = [
-        ("EMPTY [    ]", "BOTTOM LEFT", 0),
-        ("BLANK", "MIDDLE RIGHT", 0),
-        ("CHARLIE [C]", "TOP RIGHT", 1),
-        ("CHARLIE ECHO ECHO [CEE]", "BOTTOM RIGHT", 1),
-        ("DISPLAY", "BOTTOM RIGHT", 0),
-        ("FIRST", "TOP RIGHT", 0),
-        ("HOLD ON", "BOTTOM RIGHT", 0),
-        ("NO", "BOTTOM RIGHT", 0),
-        ("NOTHING", "MIDDLE LEFT", 0),
-        ("OKAY", "TOP RIGHT", 0),
-        ("ROMEO ECHO [THERE]", "BOTTOM RIGHT", 3),
-        ("ROMEO ECHO DELTA [RED]", "MIDDLE RIGHT", 2),
-        ("ROMEO ECHO ALPHA DELTA [READ]", "MIDDLE RIGHT", 2),
-        ("ROMEO ECHO ECHO DELTA [REED]", "BOTTOM LEFT", 2),
-        ("SAYS", "BOTTOM RIGHT", 0),
-        ("SIERRA ECHO ECHO [SEE]", "BOTTOM RIGHT", 1),
-        ("INDIA ROMEO [THEIR]", "MIDDLE RIGHT", 3),
-        ("LIMA ECHO DELTA [LED]", "MIDDLE LEFT", 2),
-        ("LIMA ECHO ALPHA DELTA [LEAD]", "BOTTOM RIGHT", 2),
-        ("LIMA ECHO ECHO DELTA [LEED]", "BOTTOM LEFT", 2),
-        ("THEY ARE", "MIDDLE LEFT", 0),
-        ("TICK ROMEO ECHO [THEY'RE]", "BOTTOM LEFT", 3),
-        ("UNIFORM ROMEO [UR]", "TOP LEFT", 4),
-        ("YES", "MIDDLE LEFT", 0),
-        ("YOU", "MIDDLE RIGHT", 4),
-        ("YOU ARE", "BOTTOM RIGHT", 4),
-        ("YOUR", "MIDDLE RIGHT", 5),
-        ("YOU TICK REE [YOU'RE]", "MIDDLE RIGHT", 5),
-    ];
-    const WHOS_ON_FIRST_BUTTONS: [(&str, usize); 28] = [
-        ("3 [UHHH]", 2),
-        ("2 2 [UH UH]", 2),
-        ("2 3 [UH HUH]", 2),
-        ("BLANK", 0),
-        ("DONE", 0),
-        ("FIRST", 0),
-        ("HOLD", 0),
-        ("LEFT", 0),
-        ("LIKE", 0),
-        ("MIDDLE", 0),
-        ("NEXT", 0),
-        ("NO", 0),
-        ("NOTHING", 0),
-        ("OKAY", 0),
-        ("PRESS", 0),
-        ("QUESTION [WHAT?]", 3),
-        ("READY", 0),
-        ("RIGHT", 0),
-        ("SURE", 0),
-        ("UNIFORM [U]", 1),
-        ("UNIFORM ROMEO [UR]", 4),
-        ("WAIT", 0),
-        ("WHAT", 3),
-        ("YES", 0),
-        ("YOU", 1),
-        ("YOUR", 4),
-        ("YOU ARE", 0),
-        ("YOU TICK REE [YOU'RE]", 4),
-    ];
     const COMPLICATED_WIRES: [&str; 16] = [
         "ALWAYS",
         "NEVER",
@@ -367,326 +345,186 @@ impl Application {
         "SPELL", "STILL", "STUDY", "THEIR", "THERE", "THESE", "THINK", "THINK", "THREE", "WATER",
         "WHERE", "WHICH", "WORLD", "WOULD", "WRITE",
     ];
-    #[cfg(target_os = "android")]
-    const KEYBOARD: [char; 26] = [
-        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K',
-        'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M',
-    ];
 
     pub fn new(ctx: &egui::Context) -> Self {
-        let whos_on_first_lists = [
-            vec![
-                ("READY", 0),
-                ("NOTHING", 0),
-                ("LEFT", 0),
-                ("WHAT", 3),
-                ("OKAY", 0),
-                ("YES", 0),
-                ("RIGHT", 0),
-                ("NO", 0),
-                ("PRESS", 0),
-                ("BLANK", 0),
-                ("3 [UHHH]", 2),
-            ],
-            vec![
-                ("UNIFORM ROMEO [UR]", 4),
-                ("UNIFORM [U]", 1),
-                ("YOU ARE", 0),
-                ("YOU TICK REE [YOU'RE]", 4),
-                ("NEXT", 0),
-                ("2 2 [UH UH]", 2),
-            ],
-            vec![("2 3 [UH HUH]", 2)],
-            vec![
-                ("WAIT", 0),
-                ("RIGHT", 0),
-                ("OKAY", 0),
-                ("MIDDLE", 0),
-                ("BLANK", 0),
-            ],
-            vec![
-                ("SURE", 0),
-                ("2 3 [UH HUH]", 2),
-                ("NEXT", 0),
-                ("QUESTION [WHAT?]", 3),
-                ("YOUR", 4),
-                ("UNIFORM ROMEO [UR]", 4),
-                ("YOU TICK REE [YOU'RE]", 4),
-                ("HOLD", 0),
-                ("LIKE", 0),
-                ("YOU", 1),
-                ("UNIFORM [U]", 1),
-                ("YOU ARE", 0),
-                ("2 2 [UH UH]", 2),
-                ("DONE", 0),
-            ],
-            vec![
-                ("LEFT", 0),
-                ("OKAY", 0),
-                ("YES", 0),
-                ("MIDDLE", 0),
-                ("NO", 0),
-                ("RIGHT", 0),
-                ("NOTHING", 0),
-                ("3 [UHHH]", 2),
-                ("WAIT", 0),
-                ("READY", 0),
-                ("BLANK", 0),
-                ("WHAT", 3),
-                ("PRESS", 0),
-                ("FIRST", 0),
-            ],
-            vec![
-                ("YOU ARE", 0),
-                ("UNIFORM [U]", 1),
-                ("DONE", 0),
-                ("2 2 [UH UH]", 2),
-                ("YOU", 1),
-                ("UNIFORM ROMEO [UR]", 4),
-                ("SURE", 0),
-                ("QUESTION [WHAT?]", 3),
-                ("YOU TICK REE [YOU'RE]", 4),
-                ("NEXT", 0),
-                ("HOLD", 0),
-            ],
-            vec![("RIGHT", 0), ("LEFT", 0)],
-            vec![
-                ("YOU TICK REE [YOU'RE]", 4),
-                ("NEXT", 0),
-                ("UNIFORM [U]", 1),
-                ("UNIFORM ROMEO [UR]", 4),
-                ("HOLD", 0),
-                ("DONE", 0),
-                ("2 2 [UH UH]", 2),
-                ("QUESTION [WHAT?]", 3),
-                ("2 3 [UH HUH]", 2),
-                ("YOU", 1),
-                ("LIKE", 0),
-            ],
-            vec![
-                ("BLANK", 0),
-                ("READY", 0),
-                ("OKAY", 0),
-                ("WHAT", 3),
-                ("NOTHING", 0),
-                ("PRESS", 0),
-                ("NO", 0),
-                ("WAIT", 0),
-                ("LEFT", 0),
-                ("MIDDLE", 0),
-            ],
-            vec![
-                ("QUESTION [WHAT?]", 3),
-                ("2 3 [UH HUH]", 2),
-                ("2 2 [UH UH]", 2),
-                ("YOUR", 4),
-                ("HOLD", 0),
-                ("SURE", 0),
-                ("NEXT", 0),
-            ],
-            vec![
-                ("BLANK", 0),
-                ("3 [UHHH]", 2),
-                ("WAIT", 0),
-                ("FIRST", 0),
-                ("WHAT", 3),
-                ("READY", 0),
-                ("RIGHT", 0),
-                ("YES", 0),
-                ("NOTHING", 0),
-                ("LEFT", 0),
-                ("PRESS", 0),
-                ("OKAY", 0),
-                ("NO", 0),
-            ],
-            vec![
-                ("3 [UHHH]", 2),
-                ("RIGHT", 0),
-                ("OKAY", 0),
-                ("MIDDLE", 0),
-                ("YES", 0),
-                ("BLANK", 0),
-                ("NO", 0),
-                ("PRESS", 0),
-                ("LEFT", 0),
-                ("WHAT", 3),
-                ("WAIT", 0),
-                ("FIRST", 0),
-                ("NOTHING", 0),
-            ],
-            vec![
-                ("MIDDLE", 0),
-                ("NO", 0),
-                ("FIRST", 0),
-                ("YES", 0),
-                ("3 [UHHH]", 2),
-                ("NOTHING", 0),
-                ("WAIT", 0),
-                ("OKAY", 0),
-            ],
-            vec![
-                ("RIGHT", 0),
-                ("MIDDLE", 0),
-                ("YES", 0),
-                ("READY", 0),
-                ("PRESS", 0),
-            ],
-            vec![
-                ("YOU", 1),
-                ("HOLD", 0),
-                ("YOU TICK REE [YOU'RE]", 4),
-                ("YOUR", 4),
-                ("UNIFORM [U]", 1),
-                ("DONE", 0),
-                ("2 2 [UH UH]", 2),
-                ("LIKE", 0),
-                ("YOU ARE", 0),
-                ("2 3 [UH HUH]", 2),
-                ("UNIFORM ROMEO [UR]", 4),
-                ("NEXT", 0),
-                ("QUESTION [WHAT?]", 3),
-            ],
-            vec![
-                ("YES", 0),
-                ("OKAY", 0),
-                ("WHAT", 3),
-                ("MIDDLE", 0),
-                ("LEFT", 0),
-                ("PRESS", 0),
-                ("RIGHT", 0),
-                ("BLANK", 0),
-                ("READY", 0),
-            ],
-            vec![
-                ("YES", 0),
-                ("NOTHING", 0),
-                ("READY", 0),
-                ("PRESS", 0),
-                ("NO", 0),
-                ("WAIT", 0),
-                ("WHAT", 3),
-                ("RIGHT", 0),
-            ],
-            vec![
-                ("YOU ARE", 0),
-                ("DONE", 0),
-                ("LIKE", 0),
-                ("YOU TICK REE [YOU'RE]", 4),
-                ("YOU", 1),
-                ("HOLD", 0),
-                ("2 3 [UH HUH]", 2),
-                ("UNIFORM ROMEO [UR]", 4),
-                ("SURE", 0),
-            ],
-            vec![
-                ("2 3 [UH HUH]", 2),
-                ("SURE", 0),
-                ("NEXT", 0),
-                ("QUESTION [WHAT?]", 3),
-                ("YOU TICK REE [YOU'RE]", 4),
-                ("UNIFORM ROMEO [UR]", 4),
-                ("2 2 [UH UH]", 2),
-                ("DONE", 0),
-                ("UNIFORM [U]", 1),
-            ],
-            vec![("DONE", 0), ("UNIFORM [U]", 1), ("UNIFORM ROMEO [UR]", 4)],
-            vec![
-                ("3 [UHHH]", 2),
-                ("NO", 0),
-                ("BLANK", 0),
-                ("OKAY", 0),
-                ("YES", 0),
-                ("LEFT", 0),
-                ("FIRST", 0),
-                ("PRESS", 0),
-                ("WHAT", 3),
-                ("WAIT", 0),
-            ],
-            vec![("3 [UHHH]", 2), ("WHAT", 3)],
-            vec![
-                ("OKAY", 0),
-                ("RIGHT", 0),
-                ("3 [UHHH]", 2),
-                ("MIDDLE", 0),
-                ("FIRST", 0),
-                ("WHAT", 3),
-                ("PRESS", 0),
-                ("READY", 0),
-                ("NOTHING", 0),
-                ("YES", 0),
-            ],
-            vec![
-                ("SURE", 0),
-                ("YOU ARE", 0),
-                ("YOUR", 4),
-                ("YOU TICK REE [YOU'RE]", 4),
-                ("NEXT", 0),
-                ("2 3 [UH HUH]", 2),
-                ("UNIFORM ROMEO [UR]", 4),
-                ("HOLD", 0),
-                ("QUESTION [WHAT?]", 3),
-                ("YOU", 1),
-            ],
-            vec![
-                ("2 2 [UH UH]", 2),
-                ("YOU ARE", 0),
-                ("2 3 [UH HUH]", 2),
-                ("YOUR", 4),
-            ],
-            vec![
-                ("YOUR", 4),
-                ("NEXT", 0),
-                ("LIKE", 0),
-                ("2 3 [UH HUH]", 2),
-                ("QUESTION [WHAT?]", 3),
-                ("DONE", 0),
-                ("2 2 [UH UH]", 2),
-                ("HOLD", 0),
-                ("YOU", 1),
-                ("UNIFORM [U]", 1),
-                ("YOU TICK REE [YOU'RE]", 4),
-                ("SURE", 0),
-                ("UNIFORM ROMEO [UR]", 4),
-                ("YOU ARE", 0),
-            ],
-            vec![("YOU", 1), ("YOU TICK REE [YOU'RE]", 4)],
-        ];
-        let mut whos_on_first_layouts = Vec::new();
-        for i in 0..Self::WHOS_ON_FIRST_BUTTONS.len() {
-            let mut layout = LayoutJob::default();
-            layout.append(
-                &(Self::WHOS_ON_FIRST_BUTTONS[i].0.to_owned() + ": "),
-                0.0,
-                egui::TextFormat::simple(
-                    egui::FontId::new(15.0, egui::FontFamily::Monospace),
-                    Self::COLORS[Self::WHOS_ON_FIRST_BUTTONS[i].1],
-                ),
-            );
-            let mut first = true;
-            for (word, color) in &whos_on_first_lists[i] {
-                if first {
-                    first = false;
-                } else {
-                    layout.append(
-                        ", ",
-                        0.0,
-                        egui::TextFormat::simple(
-                            egui::FontId::new(15.0, egui::FontFamily::Monospace),
-                            Self::COLORS[0],
-                        ),
-                    )
-                }
-                layout.append(
-                    word,
-                    0.0,
-                    egui::TextFormat::simple(
-                        egui::FontId::new(15.0, egui::FontFamily::Monospace),
-                        Self::COLORS[*color],
-                    ),
-                );
-            }
-            whos_on_first_layouts.push(layout);
+        let mut whos_on_first_positions: HashMap<String, usize> = HashMap::new();
+        for (label, position) in [
+            // Positions:
+            // 0 1
+            // 2 3
+            // 4 5
+            ("", 4),
+            ("BLANK", 3),
+            ("C", 1),
+            ("CEE", 5),
+            ("DISPLAY", 5),
+            ("FIRST", 1),
+            ("HOLD ON", 5),
+            ("LEAD", 5),
+            ("LED", 2),
+            ("LEED", 4),
+            ("NO", 5),
+            ("NOTHING", 2),
+            ("OKAY", 1),
+            ("READ", 3),
+            ("RED", 3),
+            ("REED", 4),
+            ("SAYS", 5),
+            ("SEE", 5),
+            ("THEIR", 3),
+            ("THERE", 5),
+            ("THEY ARE", 2),
+            ("THEY'RE", 4),
+            ("UR", 0),
+            ("YES", 2),
+            ("YOU", 3),
+            ("YOU ARE", 5),
+            ("YOU'RE", 3),
+            ("YOUR", 3),
+        ] {
+            whos_on_first_positions.insert(whos_translate(label), position);
         }
+
+        let mut whos_on_first_buttons: HashMap<String, Vec<String>> = HashMap::new();
+        for (label, v) in [
+            ("BLANK", vec!["WAIT", "RIGHT", "OKAY", "MIDDLE", "BLANK"]),
+            (
+                "DONE",
+                vec![
+                    "SURE", "UH HUH", "NEXT", "WHAT?", "YOUR", "UR", "YOU'RE", "HOLD", "LIKE",
+                    "YOU", "U", "YOU ARE", "UH UH", "DONE",
+                ],
+            ),
+            (
+                "FIRST",
+                vec![
+                    "LEFT", "OKAY", "YES", "MIDDLE", "NO", "RIGHT", "NOTHING", "UHHH", "WAIT",
+                    "READY", "BLANK", "WHAT", "PRESS", "FIRST",
+                ],
+            ),
+            (
+                "HOLD",
+                vec![
+                    "YOU ARE", "U", "DONE", "UH UH", "YOU", "UR", "SURE", "WHAT?", "YOU'RE",
+                    "NEXT", "HOLD",
+                ],
+            ),
+            ("LEFT", vec!["RIGHT", "LEFT"]),
+            (
+                "LIKE",
+                vec![
+                    "YOU'RE", "NEXT", "U", "UR", "HOLD", "DONE", "UH UH", "WHAT?", "UH HUH", "YOU",
+                    "LIKE",
+                ],
+            ),
+            (
+                "MIDDLE",
+                vec![
+                    "BLANK", "READY", "OKAY", "WHAT", "NOTHING", "PRESS", "NO", "WAIT", "LEFT",
+                    "MIDDLE",
+                ],
+            ),
+            (
+                "NEXT",
+                vec!["WHAT?", "UH HUH", "UH UH", "YOUR", "HOLD", "SURE", "NEXT"],
+            ),
+            (
+                "NO",
+                vec![
+                    "BLANK", "UHHH", "WAIT", "FIRST", "WHAT", "READY", "RIGHT", "YES", "NOTHING",
+                    "LEFT", "PRESS", "OKAY", "NO",
+                ],
+            ),
+            (
+                "NOTHING",
+                vec![
+                    "UHHH", "RIGHT", "OKAY", "MIDDLE", "YES", "BLANK", "NO", "PRESS", "LEFT",
+                    "WHAT", "WAIT", "FIRST", "NOTHING",
+                ],
+            ),
+            (
+                "OKAY",
+                vec![
+                    "MIDDLE", "NO", "FIRST", "YES", "UHHH", "NOTHING", "WAIT", "OKAY",
+                ],
+            ),
+            ("PRESS", vec!["RIGHT", "MIDDLE", "YES", "READY", "PRESS"]),
+            (
+                "RIGHT",
+                vec![
+                    "YES", "NOTHING", "READY", "PRESS", "NO", "WAIT", "WHAT", "RIGHT",
+                ],
+            ),
+            (
+                "SURE",
+                vec![
+                    "YOU ARE", "DONE", "LIKE", "YOU'RE", "YOU", "HOLD", "UH HUH", "UR", "SURE",
+                ],
+            ),
+            (
+                "U",
+                vec![
+                    "UH HUH", "SURE", "NEXT", "WHAT?", "YOU'RE", "UR", "UH UH", "DONE", "U",
+                ],
+            ),
+            ("UH HUH", vec!["UH HUH"]),
+            (
+                "UH UH",
+                vec!["UR", "U", "YOU ARE", "YOU'RE", "NEXT", "UH UH"],
+            ),
+            (
+                "UHHH",
+                vec![
+                    "READY", "NOTHING", "LEFT", "WHAT", "OKAY", "YES", "RIGHT", "NO", "PRESS",
+                    "BLANK", "UHHH",
+                ],
+            ),
+            ("UR", vec!["DONE", "U", "UR"]),
+            (
+                "WAIT",
+                vec![
+                    "UHHH", "NO", "BLANK", "OKAY", "YES", "LEFT", "FIRST", "PRESS", "WHAT", "WAIT",
+                ],
+            ),
+            ("WHAT", vec!["UHHH", "WHAT"]),
+            (
+                "WHAT?",
+                vec![
+                    "YOU", "HOLD", "YOU'RE", "YOUR", "U", "DONE", "UH UH", "LIKE", "YOU ARE",
+                    "UH HUH", "UR", "NEXT", "WHAT?",
+                ],
+            ),
+            (
+                "YES",
+                vec![
+                    "OKAY", "RIGHT", "UHHH", "MIDDLE", "FIRST", "WHAT", "PRESS", "READY",
+                    "NOTHING", "YES",
+                ],
+            ),
+            (
+                "YOU ARE",
+                vec![
+                    "YOUR", "NEXT", "LIKE", "UH HUH", "WHAT?", "DONE", "UH UH", "HOLD", "YOU", "U",
+                    "YOU'RE", "SURE", "UR", "YOU ARE",
+                ],
+            ),
+            (
+                "YOU",
+                vec![
+                    "SURE", "YOU ARE", "YOUR", "YOU'RE", "NEXT", "UH HUH", "UR", "HOLD", "WHAT?",
+                    "YOU",
+                ],
+            ),
+            ("YOU'RE", vec!["YOU", "YOU'RE"]),
+            ("YOUR", vec!["UH UH", "YOU ARE", "UH HUH", "YOUR"]),
+            (
+                "READY",
+                vec![
+                    "YES", "OKAY", "WHAT", "MIDDLE", "LEFT", "PRESS", "RIGHT", "BLANK", "READY",
+                ],
+            )] {
+                whos_on_first_buttons.insert(whos_translate(label), v.iter().map(|word| whos_translate(word)).collect());
+            }
 
         Self {
             module: Module::Menu,
@@ -698,7 +536,17 @@ impl Application {
             )),
             keypad: HashMap::new(),
             simon_says: SimonSays::default(),
-            whos_on_first_layouts,
+            whos_on_first_positions,
+            whos_on_first_buttons,
+            whos_on_first: [
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+            ],
             memory: Memory::default(),
             wire_sequence: WireSequence::default(),
             password: [
@@ -904,44 +752,73 @@ impl Application {
             Module::WhosOnFirst => {
                 if ui.button("Menu").clicked() {
                     self.module = Module::Menu;
+                    self.whos_on_first.iter_mut().for_each(|s| s.clear());
+                    self.state = 0;
+                    self.label.clear();
                 }
-                if self.state == 0 {
-                    ui.label("Displayed word:");
-                    ui.horizontal_wrapped(|ui| {
-                        let mut i = 1;
-                        for (word, _, color) in Self::WHOS_ON_FIRST_POSITIONS {
-                            if ui.button(RichText::new(word).color(Self::COLORS[color])).clicked() {
-                                self.state = i;
-                                break;
-                            }
-                            i += 1;
-                        }
-                    });
-                } else if self.state <= Self::WHOS_ON_FIRST_POSITIONS.len() {
-                    if ui.button("Reset").clicked() {
-                        self.state = 0;
-                    } else {
-                        let i = self.state - 1;
-                        ui.label(format!("{}: {}", Self::WHOS_ON_FIRST_POSITIONS[i].0, Self::WHOS_ON_FIRST_POSITIONS[i].1));
-                        ui.horizontal_wrapped(|ui| {
-                            let mut i = Self::WHOS_ON_FIRST_POSITIONS.len() + 1;
-                            for (word, color) in Self::WHOS_ON_FIRST_BUTTONS {
-                                if ui.button(RichText::new(word).color(Self::COLORS[color])).clicked() {
-                                    self.state = i;
-                                    break;
-                                }
-                                i += 1;
-                            }
+                if ui.button("Reset").clicked() {
+                    self.whos_on_first.iter_mut().for_each(|s| s.clear());
+                    self.state = 0;
+                }
+                
+                let mut changed = false;
+                let response = Frame::none().stroke(egui::Stroke { width: 10.0, color: if self.state == 0 {Color32::GOLD} else {Color32::TRANSPARENT}}).show(ui, |ui| {
+                    let color = if self.whos_on_first_positions.contains_key(&self.whos_on_first[0]) {Color32::GREEN} else {Color32::RED};
+                    ui.add(TextEdit::singleline(&mut self.whos_on_first[0]).text_color(color).desired_width(210.0))
+                });
+                ui.end_row();
+                if response.inner.changed() {
+                    changed = true;
+                    self.whos_on_first[0].make_ascii_uppercase();
+                }
+                if response.inner.clicked() {
+                    self.state = 0;
+                }
+                if response.inner.has_focus() {
+                    self.state = 0;
+                }
+                Grid::new("whos on first").num_columns(2).min_col_width(100.0).spacing((10.0, 10.0)).show(ui, |ui| {
+                    for i in 1..7 {
+                        let response = Frame::none().stroke(egui::Stroke { width: 10.0, color: if self.state == i {Color32::GOLD} else {Color32::TRANSPARENT}}).show(ui, |ui| {
+                        let color = if self.whos_on_first_buttons.contains_key(&self.whos_on_first[i]) {Color32::GREEN} else {Color32::RED};
+                        ui.add(TextEdit::singleline(&mut self.whos_on_first[i]).text_color(color).desired_width(100.0))
                         });
+                        if response.inner.changed() {
+                            changed = true;
+                            self.whos_on_first[i].make_ascii_uppercase();
+                        }
+                        if response.inner.clicked() {
+                            self.state = i;
+                        }
+                        if response.inner.has_focus() {
+                            self.state = i;
+                        }
+
+                        if i % 2 == 0 {
+                            ui.end_row();
+                        }
                     }
-                } else if self.state <= Self::WHOS_ON_FIRST_POSITIONS.len() + Self::WHOS_ON_FIRST_BUTTONS.len() {
-                    if ui.button("Reset").clicked() {
-                        self.state = 0;
+                });
+                
+                #[cfg(target_os = "android")]
+                {changed = keyboard(ui, &mut self.whos_on_first[self.state]);}
+
+                if changed {
+                    let button = if let Some((_, position)) = self.whos_on_first_positions.iter().find(|(word, _)| **word == self.whos_on_first[0]) {
+                        let label = &self.whos_on_first[*position + 1];
+                        if let Some((_, buttons)) = self.whos_on_first_buttons.iter().find(|(word, _)| *word == label) {
+                            buttons.iter().find(|word| self.whos_on_first[1..7].contains(word))
+                        } else {
+                            None
+                        }
+                    } else {None};
+                    if let Some(button) = button {
+                        self.label = button.clone();
                     } else {
-                        let i = self.state - Self::WHOS_ON_FIRST_POSITIONS.len() - 1;
-                        ui.label(self.whos_on_first_layouts[i].clone());
+                        self.label = String::from("????");
                     }
                 }
+                ui.label(&self.label);
             },
             Module::Memory => {
                 if ui.button("Menu").clicked() {
@@ -1169,23 +1046,22 @@ impl Application {
                 ui.allocate_exact_size(Vec2::new(0.0, 90.0 - label_rect.height()), egui::Sense::hover());
 
                 let mut changed = false;
-                Grid::new("password").num_columns(2).min_col_width(0.0).show(ui, |ui| {
+                Grid::new("password").num_columns(2).min_col_width(0.0).spacing((10.0, 10.0)).show(ui, |ui| {
                     for i in 0..5 {
-                        #[cfg(target_os = "android")]
                         if i == self.state {
                             ui.label(RichText::new((i + 1).to_string()).color(Color32::GOLD));
                         } else {
-                            ui.label(i.to_string());
+                            ui.label((i + 1).to_string());
                         }
-                        #[cfg(not(target_os = "android"))]
-                        ui.label((i + 1).to_string());
 
-                        let response = ui.add(TextEdit::singleline(&mut self.password[i]).desired_width(100.0));
-                        if response.changed() {
+                        let response = Frame::none().stroke(egui::Stroke { width: 10.0, color: if self.state == i {Color32::GOLD} else {Color32::TRANSPARENT}}).show(ui, |ui| {
+                            ui.add(TextEdit::singleline(&mut self.password[i]).desired_width(100.0))
+                        });
+                        if response.inner.changed() {
                             changed = true;
                             self.password[i].make_ascii_uppercase();
                         }
-                        if response.clicked() {
+                        if response.inner.clicked() {
                             self.state = i;
                         }
 
@@ -1194,23 +1070,7 @@ impl Application {
                 });
 
                 #[cfg(target_os = "android")]
-                Grid::new("keyboard").spacing((0.0, 0.0)).min_col_width(0.0).show(ui, |ui| {
-                    for i in 0usize..26 {
-                        if ui.add(Button::new(RichText::new(Self::KEYBOARD[i])).min_size(Vec2::new(30.0, 10.0)).rounding(0.0)).clicked() {
-                            self.password[self.state].push(Self::KEYBOARD[i]);
-                            changed = true;
-                        }
-                        if i == 9 {
-                            ui.end_row();
-                        } else if i == 18 {
-                            if ui.add(Button::new(RichText::new("\u{2190}")).min_size(Vec2::new(30.0, 10.0)).rounding(0.0)).clicked() {
-                                self.password[self.state].pop();
-                                changed = true;
-                            }
-                            ui.end_row();
-                        }
-                    }
-                });
+                {keyboard(ui, &mut self.password[self.state]);}
 
                 if changed {
                     self.label = Self::PASSWORDS.iter().filter(|word| {
